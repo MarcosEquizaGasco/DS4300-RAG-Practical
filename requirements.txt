@@ -1,0 +1,4 @@
+ollama
+redis
+numpy
+PyMuPDF
