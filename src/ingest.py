@@ -6,6 +6,8 @@ import numpy as np
 from redis.commands.search.query import Query
 import os
 import fitz
+import string
+import re
 
 # Initialize Redis connection
 redis_client = redis.Redis(host="localhost", port=6380, db=0)
@@ -18,9 +20,9 @@ DISTANCE_METRIC = "COSINE"
 
 # used to clear the redis vector store
 def clear_redis_store():
-    print("Clearing existing Redis store...")
+    # print("Clearing existing Redis store...")
     redis_client.flushdb()
-    print("Redis store cleared.")
+    # print("Redis store cleared.")
 
 
 # Create an HNSW index in Redis
@@ -37,7 +39,7 @@ def create_hnsw_index():
         embedding VECTOR HNSW 6 DIM {VECTOR_DIM} TYPE FLOAT32 DISTANCE_METRIC {DISTANCE_METRIC}
         """
     )
-    print("Index created successfully.")
+    # print("Index created successfully.")
 
 
 # Generate an embedding using nomic-embed-text
@@ -61,7 +63,7 @@ def store_embedding(file: str, page: str, chunk: str, embedding: list):
             ).tobytes(),  # Store as byte array
         },
     )
-    print(f"Stored embedding for: {chunk}")
+    # print(f"Stored embedding for: {chunk}")
 
 
 # extract the text from a PDF by page
@@ -86,14 +88,21 @@ def split_text_into_chunks(text, chunk_size=300, overlap=50):
 
 
 # Process all PDF files in a given directory
-def process_pdfs(data_dir):
+def process_pdfs(data_dir, chunk_size=300, overlap=50, clean = False):
 
+    chunk_count = 0
     for file_name in os.listdir(data_dir):
         if file_name.endswith(".pdf"):
             pdf_path = os.path.join(data_dir, file_name)
             text_by_page = extract_text_from_pdf(pdf_path)
             for page_num, text in text_by_page:
-                chunks = split_text_into_chunks(text)
+                if clean:
+                    text = text.translate(str.maketrans('', '', string.punctuation))
+                    text = re.sub(' +', ' ', text)
+
+                chunks = split_text_into_chunks(text, chunk_size=chunk_size, overlap=overlap)
+
+                chunk_count += len(chunks)
                 # print(f"  Chunks: {chunks}")
                 for chunk_index, chunk in enumerate(chunks):
                     # embedding = calculate_embedding(chunk)
@@ -105,8 +114,8 @@ def process_pdfs(data_dir):
                         chunk=str(chunk),
                         embedding=embedding,
                     )
-            print(f" -----> Processed {file_name}")
-
+            # print(f" -----> Processed {file_name}")
+    return chunk_count
 
 def query_redis(query_text: str):
     q = (
@@ -135,5 +144,5 @@ def main():
     query_redis("What is the capital of France?")
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()

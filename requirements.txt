@@ -2,3 +2,4 @@ ollama
 redis
 numpy
 PyMuPDF
+pandas
