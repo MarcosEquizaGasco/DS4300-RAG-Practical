@@ -8,6 +8,7 @@ import os
 import fitz
 import string
 import re
+from chromadb.api.types import EmbeddingFunction
 
 # Initialize Redis connection
 redis_client = redis.Redis(host="localhost", port=6380, db=0)
@@ -50,7 +51,7 @@ def get_embedding(text: str, model: str = "nomic-embed-text") -> list:
 
 
 # store the embedding in Redis
-def store_embedding(file: str, page: str, chunk: str, embedding: list):
+def store_embedding_redis(file: str, page: str, chunk: str, embedding: list):
     key = f"{DOC_PREFIX}:{file}_page_{page}_chunk_{chunk}"
     redis_client.hset(
         key,
@@ -88,7 +89,7 @@ def split_text_into_chunks(text, chunk_size=300, overlap=50):
 
 
 # Process all PDF files in a given directory
-def process_pdfs(data_dir, chunk_size=300, overlap=50, clean = False):
+def process_pdfs_redis(data_dir, chunk_size=300, overlap=50, clean = False):
 
     chunk_count = 0
     for file_name in os.listdir(data_dir):
@@ -107,7 +108,7 @@ def process_pdfs(data_dir, chunk_size=300, overlap=50, clean = False):
                 for chunk_index, chunk in enumerate(chunks):
                     # embedding = calculate_embedding(chunk)
                     embedding = get_embedding(chunk)
-                    store_embedding(
+                    store_embedding_redis(
                         file=file_name,
                         page=str(page_num),
                         # chunk=str(chunk_index),
@@ -131,15 +132,15 @@ def query_redis(query_text: str):
     )
     # print(res.docs)
 
-    for doc in res.docs:
-        print(f"{doc.id} \n ----> {doc.vector_distance}\n")
+    # for doc in res.docs:
+    #     print(f"{doc.id} \n ----> {doc.vector_distance}\n")
 
 
 def main():
     clear_redis_store()
     create_hnsw_index()
 
-    process_pdfs("data/")
+    process_pdfs_redis("data/")
     print("\n---Done processing PDFs---\n")
     query_redis("What is the capital of France?")
 
