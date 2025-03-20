@@ -4,16 +4,19 @@ import numpy as np
 import ollama
 from redis.commands.search.query import Query
 from redis.commands.search.field import VectorField, TextField
+from src.ingest_milvus import *
+from src.ingest_chroma import *
 
 
 # Initialize models
 # embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 redis_client = redis.StrictRedis(host="localhost", port=6380, decode_responses=True)
 
-VECTOR_DIM = 768
+VECTOR_DIM = 512
 INDEX_NAME = "embedding_index"
 DOC_PREFIX = "doc:"
 DISTANCE_METRIC = "COSINE"
+
 
 # def cosine_similarity(vec1, vec2):
 #     """Calculate cosine similarity between two vectors."""
@@ -26,7 +29,7 @@ def get_embedding(text: str, model: str = "nomic-embed-text") -> list:
     return response["embedding"]
 
 
-def search_embeddings(query, top_k=3):
+def search_embeddings(query, top_k=10, db = "redis", embed_model = "nomic-embed-text"):
 
     query_embedding = get_embedding(query)
 
@@ -45,13 +48,13 @@ def search_embeddings(query, top_k=3):
             .dialect(2)
         )
 
-        # Perform the search
-        results = redis_client.ft(INDEX_NAME).search(
-            q, query_params={"vec": query_vector}
-        )
-
-        # Transform results into the expected format
-        top_results = [
+        if db == "redis":
+            # Perform the search
+            results = redis_client.ft(INDEX_NAME).search(
+                q, query_params={"vec": query_vector}
+            )
+                # Transform results into the expected format
+            top_results = [
             {
                 "file": result.file,
                 "page": result.page,
@@ -59,13 +62,31 @@ def search_embeddings(query, top_k=3):
                 "similarity": result.vector_distance,
             }
             for result in results.docs
-        ][:top_k]
+            ][:top_k]
+        elif db == "chroma":
+            embed_fn = ChromaEmbedding(model_name=embed_model)
+            collection = chroma_client.get_collection(name="hnsw_index", embedding_function=embed_fn)
+            results = query_chroma(collection, query)
+
+            print(results['ids'])
+            top_results = [
+            {
+                "id": results['ids'][0][i],
+                "chunk": results['documents'][0][i],
+                "similarity": results['distances'][0][i],
+            }
+            for i in range(len(results['ids'][0]))
+            ][:top_k]
+
+
+        print(results)
+
 
         # Print results for debugging
-        for result in top_results:
-            print(
-                f"---> File: {result['file']}, Page: {result['page']}, Chunk: {result['chunk']}"
-            )
+        # for result in top_results:
+        #     print(
+        #         f"---> File: {result['file']}, Page: {result['page']}, Chunk: {result['chunk']}"
+        #     )
 
         return top_results
 
@@ -74,7 +95,7 @@ def search_embeddings(query, top_k=3):
         return []
 
 
-def generate_rag_response(query, context_results):
+def generate_rag_response(query, context_results, llm = 'mistral:latest'):
 
     # Prepare context string
     context_str = "\n".join(
@@ -101,13 +122,13 @@ Answer:"""
 
     # Generate response using Ollama
     response = ollama.chat(
-        model="deepseek-r1:7b", messages=[{"role": "user", "content": prompt}]
+        model=llm, messages=[{"role": "user", "content": prompt}]
     )
 
     return response["message"]["content"]
 
 
-def interactive_search():
+def interactive_search(db="redis", embed_model = "nomic-embed-text", llm = "mistral:latest"):
     """Interactive search interface."""
     print("🔍 RAG Search Interface")
     print("Type 'exit' to quit")
@@ -119,36 +140,14 @@ def interactive_search():
             break
 
         # Search for relevant embeddings
-        context_results = search_embeddings(query)
+        context_results = search_embeddings(query, db= db, embed_model = embed_model)
 
         # Generate RAG response
-        response = generate_rag_response(query, context_results)
+        response = generate_rag_response(query, context_results, llm)
 
         print("\n--- Response ---")
         print(response)
 
 
-# def store_embedding(file, page, chunk, embedding):
-#     """
-#     Store an embedding in Redis using a hash with vector field.
-
-#     Args:
-#         file (str): Source file name
-#         page (str): Page number
-#         chunk (str): Chunk index
-#         embedding (list): Embedding vector
-#     """
-#     key = f"{file}_page_{page}_chunk_{chunk}"
-#     redis_client.hset(
-#         key,
-#         mapping={
-#             "embedding": np.array(embedding, dtype=np.float32).tobytes(),
-#             "file": file,
-#             "page": page,
-#             "chunk": chunk,
-#         },
-#     )
-
-
 if __name__ == "__main__":
-    interactive_search()
+    interactive_search(db)

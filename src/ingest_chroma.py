@@ -63,9 +63,9 @@ def query_chroma(collection, query_text):
 
     if isinstance(query_text, list):
         result = collection.query(query_texts=query_text,
-                        n_results = 5)
+                        n_results = 10)
     else:
          result = collection.query(query_texts=[query_text],
-                        n_results = 5)       
+                        n_results = 10)       
     
     return result
