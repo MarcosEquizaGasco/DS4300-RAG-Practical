@@ -3,10 +3,10 @@ import os
 import string
 import re
 from src.ingest_redis import get_embedding, extract_text_from_pdf, split_text_into_chunks
+import pymilvus
 
 # Connect to Milvus server
-connections.connect(alias="default", host="localhost", port="19530")
-
+pymilvus.connections.connect(alias="default", host="localhost", port=19530)
 def clear_milvus_collection(collection_name="hnsw_index"):
     if utility.has_collection(collection_name):
         utility.drop_collection(collection_name)
@@ -47,7 +47,7 @@ def process_pdfs_milvus(collection, data_dir, chunk_size=300, overlap=50, clean=
                 data.extend([(chunk, embedding) for chunk, embedding in zip(chunks, embeddings)])
     
     if data:
-        collection.insert([[None] * len(data), [item[0] for item in data], [item[1] for item in data]])
+        collection.insert([[item[0] for item in data], [item[1] for item in data]])
         collection.flush()
     
     return collection, len(data)
