@@ -4,6 +4,7 @@ import string
 import re
 from src.ingest_redis import get_embedding, extract_text_from_pdf, split_text_into_chunks
 import pymilvus
+import ast
 
 # Connect to Milvus server
 pymilvus.connections.connect(alias="default", host="localhost", port=19530)
@@ -45,15 +46,27 @@ def process_pdfs_milvus(collection, data_dir, chunk_size=300, overlap=50, clean=
                 chunks = split_text_into_chunks(text, chunk_size=chunk_size, overlap=overlap)
                 embeddings = [get_embedding(chunk) for chunk in chunks]
                 data.extend([(chunk, embedding) for chunk, embedding in zip(chunks, embeddings)])
-    
+
     if data:
         collection.insert([[item[0] for item in data], [item[1] for item in data]])
         collection.flush()
+        collection.load()  
     
     return collection, len(data)
 
 def query_milvus(collection, query_text, top_k=5):
+    
+    collection.load()
+
     embedding = get_embedding(query_text)
     search_params = {"metric_type": "COSINE", "params": {"ef": 100}}
-    results = collection.search([embedding], "embedding", search_params, top_k=top_k, output_fields=["text"])
-    return [hit.entity.get("text") for hit in results[0]]
+
+    # Perform the search
+    results = collection.search([embedding], "embedding", search_params, top_k=top_k, output_fields=["text"], limit=10)
+    '''
+    for result in results:
+        print('Distance:', result[0].distance)
+        print('Text:', result[0].entity.get('text'))    
+    '''
+    
+    return results[0]

@@ -6,6 +6,7 @@ from redis.commands.search.query import Query
 from redis.commands.search.field import VectorField, TextField
 from src.ingest_milvus import *
 from src.ingest_chroma import *
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 # Initialize models
@@ -29,7 +30,7 @@ def get_embedding(text: str, model: str = "nomic-embed-text") -> list:
     return response["embedding"]
 
 
-def search_embeddings(query, top_k=10, db = "redis", embed_model = "nomic-embed-text"):
+def search_embeddings(query, db, top_k=10, embed_model = "nomic-embed-text"):
 
     query_embedding = get_embedding(query)
 
@@ -77,9 +78,23 @@ def search_embeddings(query, top_k=10, db = "redis", embed_model = "nomic-embed-
             }
             for i in range(len(results['ids'][0]))
             ][:top_k]
+        elif db == "milvus":
+            # Connect to Milvus and fetch the collection
+            collection = Collection("hnsw_index")  # Adjust collection name
+            results = query_milvus(collection, query, top_k)
 
-
-        print(results)
+            # Format the top results
+            top_results = [
+            {
+                "id": results[i].id,
+                "chunk": results[i].entity.get('text'),
+                "similarity": results[i].distance,
+            }
+            for i in range(len(results.ids))
+            ][:top_k]
+        
+        print('Top Results:', top_results)
+        return top_results
 
 
         # Print results for debugging
@@ -128,9 +143,10 @@ Answer:"""
     return response["message"]["content"]
 
 
-def interactive_search(db="redis", embed_model = "nomic-embed-text", llm = "mistral:latest"):
+def interactive_search(db, embed_model = "nomic-embed-text", llm = "mistral:latest"):
     """Interactive search interface."""
     print("🔍 RAG Search Interface")
+    print("Using", db)
     print("Type 'exit' to quit")
 
     while True:
@@ -140,7 +156,7 @@ def interactive_search(db="redis", embed_model = "nomic-embed-text", llm = "mist
             break
 
         # Search for relevant embeddings
-        context_results = search_embeddings(query, db= db, embed_model = embed_model)
+        context_results = search_embeddings(query, db=db, embed_model = embed_model)
 
         # Generate RAG response
         response = generate_rag_response(query, context_results, llm)
@@ -150,4 +166,4 @@ def interactive_search(db="redis", embed_model = "nomic-embed-text", llm = "mist
 
 
 if __name__ == "__main__":
-    interactive_search(db)
+    interactive_search(db='chroma')
