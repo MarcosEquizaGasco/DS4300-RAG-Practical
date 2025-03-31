@@ -89,7 +89,7 @@ def split_text_into_chunks(text, chunk_size=300, overlap=50):
 
 
 # Process all PDF files in a given directory
-def process_pdfs_redis(data_dir, chunk_size=300, overlap=50, clean = False):
+def process_pdfs_redis(data_dir, chunk_size=300, overlap=50, clean = False, model = 'nomic-embed-text'):
 
     chunk_count = 0
     for file_name in os.listdir(data_dir):
@@ -107,7 +107,7 @@ def process_pdfs_redis(data_dir, chunk_size=300, overlap=50, clean = False):
                 # print(f"  Chunks: {chunks}")
                 for chunk_index, chunk in enumerate(chunks):
                     # embedding = calculate_embedding(chunk)
-                    embedding = get_embedding(chunk)
+                    embedding = get_embedding(chunk, model = model)
                     store_embedding_redis(
                         file=file_name,
                         page=str(page_num),

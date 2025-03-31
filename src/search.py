@@ -69,7 +69,6 @@ def search_embeddings(query, db, top_k=10, embed_model = "nomic-embed-text"):
             collection = chroma_client.get_collection(name="hnsw_index", embedding_function=embed_fn)
             results = query_chroma(collection, query)
 
-            print(results['ids'])
             top_results = [
             {
                 "id": results['ids'][0][i],
@@ -93,7 +92,7 @@ def search_embeddings(query, db, top_k=10, embed_model = "nomic-embed-text"):
             for i in range(len(results.ids))
             ][:top_k]
         
-        print('Top Results:', top_results)
+        # print('Top Results:', top_results)
         return top_results
 
 
@@ -121,7 +120,7 @@ def generate_rag_response(query, context_results, llm = 'mistral:latest'):
         ]
     )
 
-    print(f"context_str: {context_str}")
+    # print(f"context_str: {context_str}")
 
     # Construct prompt with context
     prompt = f"""You are a helpful AI assistant. 

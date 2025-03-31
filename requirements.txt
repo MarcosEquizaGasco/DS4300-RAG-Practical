@@ -6,3 +6,4 @@ pandas
 chromadb
 chromadb-client
 pymilvus
+scikit-learn
