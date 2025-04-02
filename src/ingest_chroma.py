@@ -38,7 +38,7 @@ def create_chroma_index(embed_model = "nomic-embed-text"):
     
     return collection
     
-def process_pdfs_chroma(collection, data_dir, chunk_size=300, overlap=50, clean = False):
+def process_pdfs_chroma(collection, data_dir, chunk_size=1000, overlap=100, clean = False):
 
     chunk_count = 0
     for file_name in os.listdir(data_dir):
