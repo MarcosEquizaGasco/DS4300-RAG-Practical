@@ -2,3 +2,8 @@ ollama
 redis
 numpy
 PyMuPDF
+pandas
+chromadb
+chromadb-client
+pymilvus
+scikit-learn
